@@ -109,38 +109,62 @@ void executeProgram(char *program, struct SensorListNode *sensors)
     }
 }
 
+void printUsage(char *command)
+{
+    fprintf(stderr, "Usage: %s [-s <program>] [-d <delay>] [-c <count>] <USB device>\n", command);
+    fprintf(stderr, "  -s    Execute the program given as a parameter and\n");
+    fprintf(stderr, "        hand it the values in the environment instead\n");
+    fprintf(stderr, "        of printing them to stdout. The values are handed\n");
+    fprintf(stderr, "        over in form of environment variables named\n");
+    fprintf(stderr, "        UVR_INPUT_<number>_<type>, with <number> being\n");        
+    fprintf(stderr, "        the sensor number and <type> being either\n");        
+    fprintf(stderr, "        VALUE or TYPE. The _TYPE-variable contains one\n");        
+    fprintf(stderr, "        of UNUSED, DIGITAL, TEMPERATURE or FLOW, corresponding\n");
+    fprintf(stderr, "        to the respective sensor types. Digital sensors may have a value\n");
+    fprintf(stderr, "        of 0 or 1, temperature sensors contain the temperature in °C,\n");
+    fprintf(stderr, "        flow sensor values are in l/h. The number of inputs is contained\n");
+    fprintf(stderr, "        in UVR_INPUTS.\n");        
+    fprintf(stderr, "  -d    Set the delay between the value updates in seconds. (default: 10)\n");
+    fprintf(stderr, "  -c    Set the repetition counter. A repetition counter of 0 means run infinitely. (default: 0)\n");
+}
+
 int main(int argc, char *argv[]) {
     struct USBConnection *connection;
     int opt;
+    int repeatCount = 0;
     char *script = NULL;
-    while ((opt = getopt(argc, argv, "s:")) != -1) {
+    int delay = 10;
+    while ((opt = getopt(argc, argv, "s:d:c:")) != -1) {
         switch (opt) {
             case 's':
                 script = optarg;
                 break;
+            case 'd':
+                delay = atoi(optarg);
+                break;
+            case 'c':
+                repeatCount = atoi(optarg);
+                break;
+            default:
+                printUsage(argv[0]);
+                return -1;
         }
     }
     if (optind >= argc) {
-        fprintf(stderr, "Usage: %s [-t <program>] <USB device>\n", argv[0]);
-        fprintf(stderr, "  -t    Execute the program given as a parameter and\n");
-        fprintf(stderr, "        hand it the values in the environment instead\n");
-        fprintf(stderr, "        of printing them to stdout. The values are handed\n");
-        fprintf(stderr, "        over in form of environment variables named\n");
-        fprintf(stderr, "        UVR_INPUT_<number>_<type>, with <number> being\n");        
-        fprintf(stderr, "        the sensor number and <type> being either\n");        
-        fprintf(stderr, "        VALUE or TYPE. The _TYPE-variable contains one\n");        
-        fprintf(stderr, "        of UNUSED, DIGITAL, TEMPERATURE or FLOW, corresponding\n");
-        fprintf(stderr, "        to the respective sensor types. Digital sensors may have a value\n");
-        fprintf(stderr, "        of 0 or 1, temperature sensors contain the temperature in °C,\n");
-        fprintf(stderr, "        flow sensor values are in l/h. The number of inputs is contained\n");
-        fprintf(stderr, "        in UVR_INPUTS.\n");        
+        fprintf(stderr, "Missing USB device parameter.\n");
+        printUsage(argv[0]);
         return -1;
     }
     connection = initUSBConnection(argv[optind]);
     if (connection != NULL) {
         int i;
+        int increment = 1;
         fprintf(stderr, "Connection initialization successful. UVR mode 0x%X\n", (unsigned int)connection->uvr_mode);
-        for (i = 0; i < 30; ++i) {
+        if (repeatCount == 0) {
+            increment = 0;
+            repeatCount = 1; // prepare the values in a way that the loop below runs infinitely
+        }
+        for (i = 0; i < repeatCount; i+=increment) {
             struct SensorListNode * result;
             result = readCurrentData(connection);
             if (script != NULL) {
@@ -156,7 +180,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             freeSensorList(result);
-            sleep(3);
+            sleep(delay);
         }
     }
     else {
