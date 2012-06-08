@@ -29,6 +29,30 @@
 #include "communication.h"
 #include <stdlib.h>
 
+void daemonize()
+{
+    pid_t pid = fork();
+    if (pid > 0) {
+        // we're in the parent process -> exit
+        exit(0);
+    }
+    // standard UNIX daemon setup
+    umask(0);
+    pid_t sid = setsid();
+    if (sid < 0) {
+        fprintf(stderr, "Could not get new session id");
+        exit(-1);
+    }
+    if ((chdir("/")) < 0) {
+        fprintf(stderr, "Could not change directory to /");
+        exit(-1);
+    }  
+    // close STDIO
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+}
+
 /**
  * print a sensor value to stdout
  */
@@ -126,6 +150,8 @@ void printUsage(char *command)
     fprintf(stderr, "        in UVR_INPUTS.\n");        
     fprintf(stderr, "  -d    Set the delay between the value updates in seconds. (default: 10)\n");
     fprintf(stderr, "  -c    Set the repetition counter. A repetition counter of 0 means run infinitely. (default: 0)\n");
+    fprintf(stderr, "  -D    Run the program as a daemon. The reader forks into the background and detaches from the terminal\n");
+    fprintf(stderr, "        This implies -s as a daemon cannot make any output.\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -134,7 +160,8 @@ int main(int argc, char *argv[]) {
     int repeatCount = 0;
     char *script = NULL;
     int delay = 10;
-    while ((opt = getopt(argc, argv, "s:d:c:")) != -1) {
+    int daemon = 0;
+    while ((opt = getopt(argc, argv, "s:d:c:D")) != -1) {
         switch (opt) {
             case 's':
                 script = optarg;
@@ -144,6 +171,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'c':
                 repeatCount = atoi(optarg);
+                break;
+            case 'D':
+                daemon = 1;
                 break;
             default:
                 printUsage(argv[0]);
@@ -155,10 +185,18 @@ int main(int argc, char *argv[]) {
         printUsage(argv[0]);
         return -1;
     }
+    if (daemon && script == NULL) {
+        fprintf(stderr, "Missing script parameter. Running the program as a daemon implies -s.\n");
+        return -1;
+    }
+    if (daemon) {
+        daemonize();
+    }
     connection = initUSBConnection(argv[optind]);
     if (connection != NULL) {
         int i;
         int increment = 1;
+        // TODO use a logging function with global redirection of log messages
         fprintf(stderr, "Connection initialization successful. UVR mode 0x%X\n", (unsigned int)connection->uvr_mode);
         if (repeatCount == 0) {
             increment = 0;
