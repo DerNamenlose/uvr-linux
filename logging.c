@@ -1,7 +1,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include "logging.h"
-#include <boost/config/posix_features.hpp>
 
 int isDaemon;
 
