@@ -27,6 +27,7 @@
 #include <sys/wait.h>
 
 #include "communication.h"
+#include "logging.h"
 #include <stdlib.h>
 
 void daemonize()
@@ -191,13 +192,17 @@ int main(int argc, char *argv[]) {
     }
     if (daemon) {
         daemonize();
+        initlog(1);
+    }
+    else {
+        initlog(0);
     }
     connection = initUSBConnection(argv[optind]);
     if (connection != NULL) {
         int i;
         int increment = 1;
         // TODO use a logging function with global redirection of log messages
-        fprintf(stderr, "Connection initialization successful. UVR mode 0x%X\n", (unsigned int)connection->uvr_mode);
+        log_output(LOG_ERR, "Connection initialization successful. UVR mode 0x%X\n", (unsigned int)connection->uvr_mode);
         if (repeatCount == 0) {
             increment = 0;
             repeatCount = 1; // prepare the values in a way that the loop below runs infinitely

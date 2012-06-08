@@ -23,6 +23,7 @@
 #include <errno.h>
 
 #include "parsing.h"
+#include "logging.h"
 
 struct SensorListNode *parseInput(unsigned char *buffer)
 {
@@ -52,7 +53,7 @@ struct SensorListNode *parseInput(unsigned char *buffer)
                 node->sensor.value.flow = value * 4;
                 break;
             default:
-                fprintf(stderr, "Unsupported sensor type so far\n");
+                log_output(LOG_ERR, "Unsupported sensor type so far\n");
                 free(node);
                 node = NULL;
                 break;

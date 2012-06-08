@@ -31,6 +31,7 @@
 
 #include "communication.h"
 #include "parsing.h"
+#include "logging.h"
 
 /**
  * send a command to the device
@@ -143,7 +144,7 @@ int readBuffer(struct USBConnection *conn, unsigned char *buffer)
         switch (buffer[0]) {
             case GET_CURRENT_DATA:
                 // this means that we don't have new data
-                fprintf(stderr, "No new data currently. (read %d bytes)\n", ret);
+                log_output(LOG_DEBUG, "No new data currently. (read %d bytes)\n", ret);
                 errno = EAGAIN;
                 return -1;
             case UVR1611:
@@ -154,13 +155,13 @@ int readBuffer(struct USBConnection *conn, unsigned char *buffer)
                         }
                         break;
                     default:
-                        fprintf(stderr, "Unsupported mode %x\n", conn->uvr_mode);
+                        log_output(LOG_ERR, "Unsupported mode %x\n", conn->uvr_mode);
                         errno = EINVAL;
                         return -1;
                 }
                 break;
             default:
-                fprintf(stderr, "Unsupported device %x\n", buffer[0]);
+                log_output(LOG_ERR, "Unsupported device %x\n", buffer[0]);
                 errno = EINVAL;
                 return -1;
         }
@@ -186,7 +187,7 @@ struct SensorListNode *readCurrentData(struct USBConnection *conn)
     // depending on the number of bytes read, different results are to be expected
     ret = readBuffer(conn, databuffer);
     if (ret > 0) {
-        fprintf(stderr, "Read buffer of size: %d\n", ret);
+        log_output(LOG_DEBUG, "Read buffer of size: %d\n", ret);
         switch(databuffer[0]) {
             case UVR1611:
                 return parseUVR1611(databuffer);
