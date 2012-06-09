@@ -44,10 +44,12 @@ int sendCommand(struct USBConnection *conn, unsigned char command)
 {
     if (conn != NULL) {
         if (write(conn->fd, &command, 1) != 1) {
+            log_output(LOG_ERR, "Could not write to device. %s\n", strerror(errno));
             return -1;
         }
         return 0;
     }
+    log_output(LOG_ERR, "Write to device failed. Connection is invalid.\n");
     return -1;
 }
 
@@ -91,7 +93,8 @@ struct USBConnection *initUSBConnection(char const * const device)
         if (conn->device != 0) {
             strcpy(conn->device, device);
             conn->fd = open(device, O_NOCTTY | O_RDWR);
-            if (conn->fd > 0) {
+            if (conn->fd >= 0) {
+                log_output(LOG_DEBUG, "Successfully opened USB device\n");
                 // the opening has been successful
                 // -> setup the serial connection (D-LOGG is a serial connector)
                 if (tcgetattr(conn->fd, &(conn->_savedattrs)) == 0) {
@@ -106,21 +109,36 @@ struct USBConnection *initUSBConnection(char const * const device)
                     if (tcsetattr(conn->fd, TCSANOW, &(conn->_newattrs)) == 0) {
                         unsigned char buf;
                         buf = 0x81; /* get the mode of the device */
+                        log_output(LOG_DEBUG, "Initializing device.\n");
                         if (sendCommand(conn, GET_MODE) == 0) {
                             if (read(conn->fd, &(conn->uvr_mode), 1) == 1) {
                                 conn->_success = 1;  // initialization done
                             }
+                            else {
+                                log_output(LOG_ERR, "Could not read device reply. %s\n", strerror(errno));
+                            }
                         }
                     }
+                    else {
+                        log_output(LOG_ERR, "Could not setup USB device. %s\n", strerror(errno));
+                    }
+                }
+                else {
+                    log_output(LOG_ERR, "Could not get attributes of serial interface. %s\n", strerror(errno));
                 }
             }
         }
     }
+    else {
+        log_output(LOG_ERR, "Could not allocate memory. %s\n", strerror(errno));
+    }
     if (conn != NULL && !conn->_success) {
         /* somewhere along the way we couldn't successfully initialize -> clean up */
+        log_output(LOG_ERR, "Could not open USB device %s. %s\n", device, strerror(errno));
         cleanupUSBConnection(conn);
         conn = NULL;
     }
+    log_output(LOG_DEBUG, "Returning connection %p\n", conn);
     return conn;
 }
 

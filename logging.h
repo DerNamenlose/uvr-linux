@@ -26,6 +26,8 @@ void initlog(int daemon);
 
 void log_output(int priority, char *format, ...);
 
+void enable_debug();
+
 void endlog();
 
 #endif // LOGGING_H
