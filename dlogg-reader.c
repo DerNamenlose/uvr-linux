@@ -47,7 +47,8 @@ void daemonize()
     if ((chdir("/")) < 0) {
         fprintf(stderr, "Could not change directory to /");
         exit(-1);
-    }  
+    }
+    log_output(LOG_DEBUG, "Sucessfully daemonized reader.\n");
     // close STDIO
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
@@ -127,10 +128,14 @@ void executeProgram(char *program, struct SensorListNode *sensors)
         }
         snprintf(valuebuf, 100, "%d", counter);
         setenv("UVR_INPUTS", valuebuf, 1);
+        log_output(LOG_DEBUG, "Executing %s\n", program);
         system(program);
+        log_output(LOG_DEBUG, "%s finished\n", program);
+        exit(0);
     }
     else {
-        wait(NULL); // sleep until the child returns
+        waitpid(child, NULL, 0); // sleep until the child returns
+        log_output(LOG_DEBUG, "Child returned\n");
     }
 }
 
@@ -153,6 +158,7 @@ void printUsage(char *command)
     fprintf(stderr, "  -c    Set the repetition counter. A repetition counter of 0 means run infinitely. (default: 0)\n");
     fprintf(stderr, "  -D    Run the program as a daemon. The reader forks into the background and detaches from the terminal\n");
     fprintf(stderr, "        This implies -s as a daemon cannot make any output.\n");
+    fprintf(stderr, "  -v    Enable debug output.\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -162,7 +168,7 @@ int main(int argc, char *argv[]) {
     char *script = NULL;
     int delay = 10;
     int daemon = 0;
-    while ((opt = getopt(argc, argv, "s:d:c:D")) != -1) {
+    while ((opt = getopt(argc, argv, "s:d:c:Dv")) != -1) {
         switch (opt) {
             case 's':
                 script = optarg;
@@ -175,6 +181,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'D':
                 daemon = 1;
+                break;
+            case 'v':
+                enable_debug();
                 break;
             default:
                 printUsage(argv[0]);
@@ -191,18 +200,18 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     if (daemon) {
-        daemonize();
         initlog(1);
+        daemonize();
     }
     else {
         initlog(0);
     }
+    log_output(LOG_DEBUG, "Opening USB device\n");
     connection = initUSBConnection(argv[optind]);
     if (connection != NULL) {
         int i;
         int increment = 1;
-        // TODO use a logging function with global redirection of log messages
-        log_output(LOG_ERR, "Connection initialization successful. UVR mode 0x%X\n", (unsigned int)connection->uvr_mode);
+        log_output(LOG_INFO, "Connection initialization successful. UVR mode 0x%X\n", (unsigned int)connection->uvr_mode);
         if (repeatCount == 0) {
             increment = 0;
             repeatCount = 1; // prepare the values in a way that the loop below runs infinitely

@@ -3,6 +3,12 @@
 #include "logging.h"
 
 int isDaemon;
+int debug = 0;
+
+void enable_debug()
+{
+    debug = 1;
+}
 
 void initlog(int daemon)
 {
@@ -14,6 +20,9 @@ void initlog(int daemon)
 
 void log_output ( int priority, char* format, ... )
 {
+    if (!debug && priority == LOG_DEBUG) {
+        return; // switch of debugging output if not needed
+    }
     va_list ap;
     va_start(ap, format);
     if (isDaemon) {
