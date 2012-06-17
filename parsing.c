@@ -165,11 +165,11 @@ int parseHeat(struct SystemState *state, unsigned char *buffer, unsigned int num
                     return -1;
                 }
                 // current value
-                value = ((int)buffer[i*4+1+3]) << 16;
+                value = ((int)(buffer[i*4+1+3])) << 16;
                 value += ((int)buffer[i*4+1+2]) << 8;
                 value += buffer[i*4+1+1];
                 if (buffer[i*4+1+3] > 127) {
-                    value -= 65536;
+                    value = -(0x01000000 - value);
                 }
                 value *= 10;
                 if (buffer[i*4+1+3] > 127) {
