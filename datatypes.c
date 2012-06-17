@@ -22,27 +22,43 @@
 
 #include "datatypes.h"
 
-/**
- * clean up a sensor list
- */
-void freeSensorList(struct SensorListNode *list)
+struct SystemState *initSystemState()
 {
-    struct SensorListNode *ptr;
-    ptr = list;
-    while (ptr != NULL) {
-        struct SensorListNode *tmp;
-        tmp = ptr;
-        ptr = ptr->next;
-        free(tmp);
+    struct SystemState *ptr;
+    ptr = malloc(sizeof(struct SystemState));
+    if (ptr) {
+        ptr->inputs = NULL;
+        ptr->outputs = NULL;
     }
 }
 
-struct SensorListNode *createSensorListNode()
+/**
+ * clean up a system state object
+ */
+void freeSystemState(struct SystemState *state)
 {
-    struct SensorListNode *tmp;
-    tmp = malloc(sizeof(struct SensorListNode));
+    if (state) {
+        if (state->inputs) {
+            struct ValueListNode *ptr;
+            ptr = state->inputs;
+            while (ptr != NULL) {
+                struct ValueListNode *tmp;
+                tmp = ptr;
+                ptr = ptr->next;
+                free(tmp);
+            }
+        }
+        free(state);
+    }
+}
+
+struct ValueListNode *createValueListNode()
+{
+    struct ValueListNode *tmp;
+    tmp = malloc(sizeof(struct ValueListNode));
     if (tmp != NULL) {
         tmp->next = NULL;
     }
     return tmp;
 }
+

@@ -58,21 +58,21 @@ void daemonize()
 /**
  * print a sensor value to stdout
  */
-void printSensor(struct SensorValue *sensor)
+void printValue(struct Value *value)
 {
-    printf("S%d: ", sensor->sensor);
-    switch (sensor->sensorType) {
+    printf("S%d: ", value->valueID);
+    switch (value->valueType) {
         case UNUSED:
             printf("---");
             break;
         case DIGITAL:
-            printf(sensor->value.enabled ? "on" : "off");
+            printf(value->value.enabled ? "on" : "off");
             break;
         case TEMPERATURE:
-            printf("%.1f °C", sensor->value.temperature);
+            printf("%.1f °C", value->value.temperature);
             break;
         case FLOW:
-            printf("%d l/h", sensor->value.flow);
+            printf("%d l/h", value->value.flow);
             break;
         default:
             printf("UNKNOWN");
@@ -80,62 +80,64 @@ void printSensor(struct SensorValue *sensor)
     }
 }
 
-void executeProgram(char *program, struct SensorListNode *sensors)
+void executeProgram(char *program, struct SystemState *state)
 {
     pid_t child;
-    child = fork();
-    if (child == 0) {
-        // we're in the child
-        struct SensorListNode *si = sensors;
-        char valuebuf[100];
-        int counter = 0;
-        while (si != NULL) {
-            char varbuf[100];
-            snprintf(varbuf, 100, "UVR_INPUT_%d_TYPE", si->sensor.sensor);
-            switch(si->sensor.sensorType) {
-                case UNUSED:
-                    snprintf(valuebuf, 100, "UNUSED");
-                    break;
-                case DIGITAL:
-                    snprintf(valuebuf, 100, "DIGITAL");
-                    break;
-                case TEMPERATURE:
-                    snprintf(valuebuf, 100, "TEMPERATURE");
-                    break;
-                case FLOW:
-                    snprintf(valuebuf, 100, "FLOW");
-                    break;
+    if (state != NULL) {
+        child = fork();
+        if (child == 0) {
+            // we're in the child
+            struct ValueListNode *ii = state->inputs;
+            char valuebuf[100];
+            int counter = 0;
+            while (ii != NULL) {
+                char varbuf[100];
+                snprintf(varbuf, 100, "UVR_INPUT_%d_TYPE", ii->value.valueID);
+                switch(ii->value.valueID) {
+                    case UNUSED:
+                        snprintf(valuebuf, 100, "UNUSED");
+                        break;
+                    case DIGITAL:
+                        snprintf(valuebuf, 100, "DIGITAL");
+                        break;
+                    case TEMPERATURE:
+                        snprintf(valuebuf, 100, "TEMPERATURE");
+                        break;
+                    case FLOW:
+                        snprintf(valuebuf, 100, "FLOW");
+                        break;
+                }
+                setenv(varbuf, valuebuf, 1);
+                snprintf(varbuf, 100, "UVR_INPUT_%d_VALUE", ii->value.valueID);
+                switch(ii->value.valueType) {
+                    case UNUSED:
+                        snprintf(valuebuf, 100, "UNUSED");
+                        break;
+                    case DIGITAL:
+                        snprintf(valuebuf, 100, ii->value.value.enabled ? "1" : "0");
+                        break;
+                    case TEMPERATURE:
+                        snprintf(valuebuf, 100, "%.1f", ii->value.value.temperature);
+                        break;
+                    case FLOW:
+                        snprintf(valuebuf, 100, "%d", ii->value.value.flow);
+                        break;
+                }
+                setenv(varbuf, valuebuf, 1);
+                counter++;
+                ii = ii->next;
             }
-            setenv(varbuf, valuebuf, 1);
-            snprintf(varbuf, 100, "UVR_INPUT_%d_VALUE", si->sensor.sensor);
-            switch(si->sensor.sensorType) {
-                case UNUSED:
-                    snprintf(valuebuf, 100, "UNUSED");
-                    break;
-                case DIGITAL:
-                    snprintf(valuebuf, 100, si->sensor.value.enabled ? "1" : "0");
-                    break;
-                case TEMPERATURE:
-                    snprintf(valuebuf, 100, "%.1f", si->sensor.value.temperature);
-                    break;
-                case FLOW:
-                    snprintf(valuebuf, 100, "%d", si->sensor.value.flow);
-                    break;
-            }
-            setenv(varbuf, valuebuf, 1);
-            counter++;
-            si = si->next;
+            snprintf(valuebuf, 100, "%d", counter);
+            setenv("UVR_INPUTS", valuebuf, 1);
+            log_output(LOG_DEBUG, "Executing %s\n", program);
+            system(program);
+            log_output(LOG_DEBUG, "%s finished\n", program);
+            exit(0);
         }
-        snprintf(valuebuf, 100, "%d", counter);
-        setenv("UVR_INPUTS", valuebuf, 1);
-        log_output(LOG_DEBUG, "Executing %s\n", program);
-        system(program);
-        log_output(LOG_DEBUG, "%s finished\n", program);
-        exit(0);
-    }
-    else {
-        waitpid(child, NULL, 0); // sleep until the child returns
-        log_output(LOG_DEBUG, "Child returned\n");
+        else {
+            waitpid(child, NULL, 0); // sleep until the child returns
+            log_output(LOG_DEBUG, "Child returned\n");
+        }
     }
 }
 
@@ -217,21 +219,21 @@ int main(int argc, char *argv[]) {
             repeatCount = 1; // prepare the values in a way that the loop below runs infinitely
         }
         for (i = 0; i < repeatCount; i+=increment) {
-            struct SensorListNode * result;
+            struct SystemState *result;
             result = readCurrentData(connection);
             if (script != NULL) {
                 executeProgram(script, result);
             }
             else {
-                struct SensorListNode *it;
-                it = result;
+                struct ValueListNode *it;
+                it = result->inputs;
                 while (it != NULL) {
-                    printSensor(&(it->sensor));
+                    printValue(&(it->value));
                     printf("\n");
                     it = it->next;
                 }
             }
-            freeSensorList(result);
+            freeSystemState(result);
             sleep(delay);
         }
     }

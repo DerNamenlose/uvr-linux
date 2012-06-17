@@ -68,7 +68,7 @@ int readBuffer(struct USBConnection *conn, unsigned char *buffer);
  * \return a pointer to the sensor list on success, NULL otherwise. errno will be set accordingly.
  * \note if the sensor list is no longer needed, release it using freeSensorList()
  */
-struct SensorListNode *readCurrentData(struct USBConnection *conn);
+struct SystemState *readCurrentData(struct USBConnection *conn);
 
 #ifdef __cplusplus
 }

@@ -30,7 +30,7 @@ extern "C" {
 /**
  * parse an input entry in the given buffer
  */
-struct SensorListNode *parseInput(unsigned char *buffer);
+struct ValueListNode *parseInput(unsigned char *buffer);
 
 
 /**
@@ -38,7 +38,7 @@ struct SensorListNode *parseInput(unsigned char *buffer);
  * 
  * \return NULL on error, a sensor node else
  */
-struct SensorListNode *parseUVR1611(unsigned char *buffer);
+struct SystemState *parseUVR1611(unsigned char *buffer);
 
 #ifdef __cplusplus
 }
