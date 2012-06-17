@@ -99,7 +99,13 @@ struct USBConnection *initUSBConnection(char const * const device)
                 // -> setup the serial connection (D-LOGG is a serial connector)
                 if (tcgetattr(conn->fd, &(conn->_savedattrs)) == 0) {
                     memset(&(conn->_newattrs), 0, sizeof(struct termios));
-                    conn->_newattrs.c_cflag     = B115200 | CRTSCTS | CS8 | CLOCAL | CREAD;
+                    conn->_newattrs.c_cflag     = B115200 | CS8 | CLOCAL | CREAD;
+#ifdef CRTSCTS
+                    conn->_newattrs.c_cflag    |= CRTSCTS;
+#endif
+#ifdef CNEW_RTSCTS
+                    conn->_newattrs.c_cflag    |= CNEW_RTSCTS;
+#endif
                     conn->_newattrs.c_iflag     = IGNPAR;
                     conn->_newattrs.c_oflag     = 0;
                     conn->_newattrs.c_lflag     = 0;
@@ -107,8 +113,6 @@ struct USBConnection *initUSBConnection(char const * const device)
                     conn->_newattrs.c_cc[VMIN]  = 1;   /* minimum 1 character to be read */
                     tcflush(conn->fd, TCIFLUSH);
                     if (tcsetattr(conn->fd, TCSANOW, &(conn->_newattrs)) == 0) {
-                        unsigned char buf;
-                        buf = 0x81; /* get the mode of the device */
                         log_output(LOG_DEBUG, "Initializing device.\n");
                         if (sendCommand(conn, GET_MODE) == 0) {
                             if (read(conn->fd, &(conn->uvr_mode), 1) == 1) {

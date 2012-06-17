@@ -41,7 +41,7 @@ struct ValueListNode *parseInput(unsigned char *buffer)
             case UNUSED:
                 break;
             case DIGITAL:
-                if (buffer[1] & 0x80 != 0) {
+                if ((buffer[1] & 0x80) != 0) {
                     node->value.value.enabled = 1;
                 }
                 else {
@@ -66,28 +66,33 @@ struct ValueListNode *parseInput(unsigned char *buffer)
 
 int parseInputs(struct SystemState *state, unsigned char *buffer, unsigned int number)
 {
-    int i;
-    struct ValueListNode *head;
-    struct ValueListNode *last;
-    head = last = NULL;
-    for (i = 0; i < number; ++i) { 
-        struct ValueListNode *node;
-        node = parseInput(buffer+2*i); // every input takes 2 bytes
-        if (node != NULL) {
-            node->value.valueID = i+1;  // inputs are 1-based
-            if (head == NULL) {
-                head = node;
+    log_output(LOG_DEBUG, "Parsing %d inputs\n", number);
+    if (state != NULL && buffer != NULL) {
+        unsigned int i;
+        struct ValueListNode *head;
+        struct ValueListNode *last;
+        head = last = NULL;
+        for (i = 0; i < number; ++i) { 
+            struct ValueListNode *node;
+            node = parseInput(buffer+2*i); // every input takes 2 bytes
+            if (node != NULL) {
+                node->value.valueID = i+1;  // inputs are 1-based
+                if (head == NULL) {
+                    head = node;
+                }
+                if (last != NULL) {
+                    last->next = node;
+                }
+                last = node;
             }
-            if (last != NULL) {
-                last->next = node;
+            else {
+                log_output(LOG_ERR, "Could not create new list node instance\n");
+                return -1;
             }
-            last = node;
         }
-        else {
-            return -1;
-        }
+        state->inputs = head;
     }
-    state->inputs = head;
+    log_output(LOG_DEBUG, "Done parsing inputs\n");
     return 0;
 }
 
@@ -100,14 +105,17 @@ int parseInputs(struct SystemState *state, unsigned char *buffer, unsigned int n
  */
 int parseOutputs(struct SystemState *state, unsigned char *buffer, unsigned int number)
 {
+    log_output(LOG_DEBUG, "Parsing %u outputs\n", number);
     if (state != NULL && buffer != NULL) {
         struct ValueListNode *currentLast = NULL;
-        int i;
+        unsigned int i;
         for (i = 0; i < number; ++i) {
             unsigned char currentByte;
             struct ValueListNode *node;
+            log_output(LOG_DEBUG, "Parsing input %u\n", i);
             node = createValueListNode();
             if (node == NULL) {
+                log_output(LOG_ERR, "Could not create new list node instance\n");
                 return -1;
             }
             currentByte = buffer[(int)(i / 8)]; // get the correct byte in the buffer containing our output bit
@@ -123,6 +131,7 @@ int parseOutputs(struct SystemState *state, unsigned char *buffer, unsigned int 
             currentLast = node;
         }
     }
+    log_output(LOG_DEBUG, "Done parsing outputs\n");
     return 0;
 }
 
@@ -132,6 +141,7 @@ int parseOutputs(struct SystemState *state, unsigned char *buffer, unsigned int 
 int parseRotations(struct SystemState *state, unsigned char *buffer, unsigned int number)
 {
     // TODO implement
+    return 0;
 }
 
 /**
@@ -139,10 +149,11 @@ int parseRotations(struct SystemState *state, unsigned char *buffer, unsigned in
  */
 int parseHeat(struct SystemState *state, unsigned char *buffer, unsigned int number)
 {
+    log_output(LOG_DEBUG, "Parsing %d heat registers\n", number);
     if (state != NULL && buffer != NULL)
     {
         struct ValueListNode *currentLast = NULL;
-        int i;
+        unsigned int i;
         for (i = 0; i < number; ++i) {
             if (GETBIT(buffer[0], i)) {
                 // only parse the register if the corresponding counter is enabled
@@ -150,6 +161,7 @@ int parseHeat(struct SystemState *state, unsigned char *buffer, unsigned int num
                 struct ValueListNode *node;
                 node = createValueListNode();
                 if (node == NULL) {
+                    log_output(LOG_ERR, "Could not create new list node instance\n");
                     return -1;
                 }
                 // current value
@@ -184,6 +196,7 @@ int parseHeat(struct SystemState *state, unsigned char *buffer, unsigned int num
             }
         }
     }
+    log_output(LOG_DEBUG, "Done parsing heat registers\n");
     return 0;
 }
 
@@ -194,6 +207,7 @@ int parseHeat(struct SystemState *state, unsigned char *buffer, unsigned int num
  */
 struct SystemState *parseUVR1611(unsigned char *buffer)
 {
+    log_output(LOG_DEBUG, "Parsing message from UVR1611\n");
     struct SystemState *state;
     state = initSystemState();
     if (state != NULL) {

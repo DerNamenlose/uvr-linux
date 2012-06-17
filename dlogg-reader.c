@@ -20,15 +20,16 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 
 #include "communication.h"
 #include "logging.h"
-#include <stdlib.h>
 
 void daemonize()
 {
@@ -75,7 +76,7 @@ void printValue(char *prefix, struct Value *value)
             printf("%d l/h", value->value.flow);
             break;
         case HEAT:
-            printf("%.2f kWh (total: %.1f kWh)", value->value.heat.current, value->value.heat.total);
+            printf("%.2f kW (total: %.1f kWh)", value->value.heat.current, value->value.heat.total);
             break;
         default:
             printf("UNKNOWN");
@@ -259,18 +260,21 @@ int main(int argc, char *argv[]) {
         for (i = 0; i < repeatCount; i+=increment) {
             struct SystemState *result;
             result = readCurrentData(connection);
-            if (script != NULL) {
-                executeProgram(script, result);
+            if (result != NULL) {
+                if (script != NULL) {
+                    executeProgram(script, result);
+                }
+                else {
+                    printf("Inputs\n");
+                    printValueList("S", result->inputs);
+                    printf("Outputs\n");
+                    printValueList("O", result->outputs);
+                    printf("Heat registers\n");
+                    printValueList("", result->heatRegisters);
+                }
+                freeSystemState(result);
+                result = NULL;
             }
-            else {
-                printf("Inputs\n");
-                printValueList("S", result->inputs);
-                printf("Outputs\n");
-                printValueList("O", result->outputs);
-                printf("Heat registers\n");
-                printValueList("", result->heatRegisters);
-            }
-            freeSystemState(result);
             sleep(delay);
         }
     }
