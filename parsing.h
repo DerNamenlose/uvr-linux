@@ -28,12 +28,6 @@ extern "C" {
 #endif
 
 /**
- * parse an input entry in the given buffer
- */
-struct ValueListNode *parseInput(unsigned char *buffer);
-
-
-/**
  * parse the buffer from a UVR1611
  * 
  * \return NULL on error, a sensor node else
