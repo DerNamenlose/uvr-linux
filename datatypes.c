@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "datatypes.h"
@@ -31,6 +31,7 @@ struct SystemState *initSystemState()
         ptr->outputs = NULL;
         ptr->heatRegisters = NULL;
     }
+    return ptr;
 }
 
 void freeValueList(struct ValueListNode *head)
