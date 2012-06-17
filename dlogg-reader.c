@@ -58,9 +58,9 @@ void daemonize()
 /**
  * print a sensor value to stdout
  */
-void printValue(struct Value *value)
+void printValue(char *prefix, struct Value *value)
 {
-    printf("S%d: ", value->valueID);
+    printf("%s%d: ", prefix, value->valueID);
     switch (value->valueType) {
         case UNUSED:
             printf("---");
@@ -226,12 +226,20 @@ int main(int argc, char *argv[]) {
             }
             else {
                 struct ValueListNode *it;
+                printf("Inputs\n");
                 it = result->inputs;
                 while (it != NULL) {
-                    printValue(&(it->value));
+                    printValue("S", &(it->value));
                     printf("\n");
                     it = it->next;
                 }
+                printf("Outputs\n");
+                it = result->outputs;
+                while (it != NULL) {
+                    printValue("O", &(it->value));
+                    printf("\n");
+                    it = it->next;
+                }                
             }
             freeSystemState(result);
             sleep(delay);

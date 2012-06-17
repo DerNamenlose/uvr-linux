@@ -25,6 +25,8 @@
 #include "parsing.h"
 #include "logging.h"
 
+#define GETBIT(byte, bit) ((byte & (0x01 << bit)) >> bit)
+
 struct ValueListNode *parseInput(unsigned char *buffer)
 {
     struct ValueListNode *node;
@@ -62,17 +64,17 @@ struct ValueListNode *parseInput(unsigned char *buffer)
     return node;
 }
 
-int parseInputs(struct SystemState *state, unsigned char *buffer)
+int parseInputs(struct SystemState *state, unsigned char *buffer, unsigned int number)
 {
     int i;
     struct ValueListNode *head;
     struct ValueListNode *last;
     head = last = NULL;
-    for (i = 0; i < 16; ++i) { // UVR1611 has 16 inputs
+    for (i = 0; i < number; ++i) { 
         struct ValueListNode *node;
         node = parseInput(buffer+2*i+1); // every input takes 2 bytes and the first one is at offset 1
         if (node != NULL) {
-            node->value.valueID = i+1;
+            node->value.valueID = i+1;  // inputs are 1-based
             if (head == NULL) {
                 head = node;
             }
@@ -90,6 +92,41 @@ int parseInputs(struct SystemState *state, unsigned char *buffer)
 }
 
 /**
+ * parse the output information from the buffer
+ * 
+ * \param state the system state where to put the outputs
+ * \param buffer the buffer where the binary encoding is located
+ * \param number the number of outputs to parse
+ */
+int parseOutputs(struct SystemState *state, unsigned char *buffer, unsigned int number)
+{
+    if (state != NULL && buffer != NULL) {
+        struct ValueListNode *currentLast = NULL;
+        int i;
+        for (i = 0; i < number; ++i) {
+            unsigned char currentByte;
+            struct ValueListNode *node;
+            node = createValueListNode();
+            if (node == NULL) {
+                return -1;
+            }
+            currentByte = buffer[(int)(i / 8)]; // get the correct byte in the buffer containing our output bit
+            node->value.valueType = DIGITAL;
+            node->value.valueID = i+1; // outputs are 1-based
+            node->value.value.enabled = GETBIT(currentByte, i % 8);
+            if (state->outputs == NULL) {
+                state->outputs = node;
+            }
+            else {
+                currentLast->next = node;
+            }
+            currentLast = node;
+        }
+    }
+    return 0;
+}
+
+/**
  * parse the buffer from a UVR1611
  * 
  * \return NULL on error, a system state structure else
@@ -99,12 +136,18 @@ struct SystemState *parseUVR1611(unsigned char *buffer)
     struct SystemState *state;
     state = initSystemState();
     if (state != NULL) {
-        if (parseInputs(state, buffer) != 0) {
+        if (parseInputs(state, buffer, 16) != 0) {
             log_output(LOG_ERR, "Could not parse input list.\n");
             freeSystemState(state);
             state = NULL;
         }
     }
-    // TODO parse outputs
+    if (state != NULL) {
+        if (parseOutputs(state, buffer+1+32, 13) != 0) {
+            log_output(LOG_ERR, "Could not parse input list.\n");
+            freeSystemState(state);
+            state = NULL;
+        }
+    }
     return state;
 }
