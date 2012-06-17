@@ -72,7 +72,7 @@ int parseInputs(struct SystemState *state, unsigned char *buffer, unsigned int n
     head = last = NULL;
     for (i = 0; i < number; ++i) { 
         struct ValueListNode *node;
-        node = parseInput(buffer+2*i+1); // every input takes 2 bytes and the first one is at offset 1
+        node = parseInput(buffer+2*i); // every input takes 2 bytes
         if (node != NULL) {
             node->value.valueID = i+1;  // inputs are 1-based
             if (head == NULL) {
@@ -127,6 +127,67 @@ int parseOutputs(struct SystemState *state, unsigned char *buffer, unsigned int 
 }
 
 /**
+ * parse the rotation entries in the buffer
+ */
+int parseRotations(struct SystemState *state, unsigned char *buffer, unsigned int number)
+{
+    // TODO implement
+}
+
+/**
+ * parse the heat registers
+ */
+int parseHeat(struct SystemState *state, unsigned char *buffer, unsigned int number)
+{
+    if (state != NULL && buffer != NULL)
+    {
+        struct ValueListNode *currentLast = NULL;
+        int i;
+        for (i = 0; i < number; ++i) {
+            if (GETBIT(buffer[0], i)) {
+                // only parse the register if the corresponding counter is enabled
+                int value = 0;
+                struct ValueListNode *node;
+                node = createValueListNode();
+                if (node == NULL) {
+                    return -1;
+                }
+                // current value
+                value = ((int)buffer[i*4+1+3]) << 16;
+                value += ((int)buffer[i*4+1+2]) << 8;
+                value += buffer[i*4+1+1];
+                if (buffer[i*4+1+3] > 127) {
+                    value -= 65536;
+                }
+                value *= 10;
+                if (buffer[i*4+1+3] > 127) {
+                    value -= ((int)buffer[i*4+1]) * 10 / 256;
+                }
+                else {
+                    value += ((int)buffer[i*4+1]) * 10 / 256;
+                }
+                node->value.valueID = i+1;
+                node->value.valueType = HEAT;
+                node->value.value.heat.current = ((float)value) / 100;
+                // the total value
+                value = (((unsigned int)buffer[i*4+1+7]) << 8) + buffer[i*4+1+6];
+                node->value.value.heat.total = value * 1000; // the high bytes give the value in MWh, we save kWh
+                value = (((unsigned int)buffer[i*4+1+5]) << 8) + buffer[i*4+1+4];
+                node->value.value.heat.total += ((float)value) / 10;
+                if (state->heatRegisters == NULL) {
+                    state->heatRegisters = node;
+                }
+                else {
+                    currentLast->next = node;
+                }
+                currentLast = node;
+            }
+        }
+    }
+    return 0;
+}
+
+/**
  * parse the buffer from a UVR1611
  * 
  * \return NULL on error, a system state structure else
@@ -136,7 +197,7 @@ struct SystemState *parseUVR1611(unsigned char *buffer)
     struct SystemState *state;
     state = initSystemState();
     if (state != NULL) {
-        if (parseInputs(state, buffer, 16) != 0) {
+        if (parseInputs(state, buffer+1, 16) != 0) {
             log_output(LOG_ERR, "Could not parse input list.\n");
             freeSystemState(state);
             state = NULL;
@@ -144,6 +205,13 @@ struct SystemState *parseUVR1611(unsigned char *buffer)
     }
     if (state != NULL) {
         if (parseOutputs(state, buffer+1+32, 13) != 0) {
+            log_output(LOG_ERR, "Could not parse input list.\n");
+            freeSystemState(state);
+            state = NULL;
+        }
+    }
+    if (state != NULL) {
+        if (parseHeat(state, buffer+1+38, 2) != 0) {
             log_output(LOG_ERR, "Could not parse input list.\n");
             freeSystemState(state);
             state = NULL;

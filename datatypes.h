@@ -61,6 +61,7 @@ struct USBConnection
 #define FLOW 3
 #define RADIATION 6
 #define ROOM_TEMPERATURE 7
+#define HEAT 100
 
 struct Value
 {
@@ -70,6 +71,10 @@ struct Value
         int   enabled;
         int   flow;
         int   radiation;
+        struct {
+            float current;
+            float total;
+        } heat;
     } value;
     int valueType;
 };
@@ -90,6 +95,7 @@ struct SystemState
 {
     struct ValueListNode *inputs;
     struct ValueListNode *outputs;
+    struct ValueListNode *heatRegisters;
     // TODO more values
 };
 

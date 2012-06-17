@@ -74,10 +74,88 @@ void printValue(char *prefix, struct Value *value)
         case FLOW:
             printf("%d l/h", value->value.flow);
             break;
+        case HEAT:
+            printf("%.2f kWh (total: %.1f kWh)", value->value.heat.current, value->value.heat.total);
+            break;
         default:
             printf("UNKNOWN");
             break;
     }
+}
+
+void printValueList(char *prefix, struct ValueListNode *head)
+{
+    struct ValueListNode *tmp;
+    tmp = head;
+    while (tmp != NULL) {
+        printValue(prefix, &(tmp->value));
+        putchar('\n');
+        tmp = tmp->next;
+    }
+}
+
+void setEnvValue(char *prefix, struct Value *value)
+{
+    char varbuf[100];
+    char valuebuf[100];
+    snprintf(varbuf, 100, "%s_%d_TYPE", prefix, (int)(value->valueID));
+    switch(value->valueType) {
+        case UNUSED:
+            snprintf(valuebuf, 100, "UNUSED");
+            break;
+        case DIGITAL:
+            snprintf(valuebuf, 100, "DIGITAL");
+            break;
+        case TEMPERATURE:
+            snprintf(valuebuf, 100, "TEMPERATURE");
+            break;
+        case FLOW:
+            snprintf(valuebuf, 100, "FLOW");
+            break;
+        case HEAT:
+            snprintf(valuebuf, 100, "HEAT");
+            break;
+    }
+    setenv(varbuf, valuebuf, 1);
+    snprintf(varbuf, 100, "%s_%d_VALUE", prefix, (int)(value->valueID));
+    switch(value->valueType) {
+        case UNUSED:
+            snprintf(valuebuf, 100, "UNUSED");
+            break;
+        case DIGITAL:
+            snprintf(valuebuf, 100, value->value.enabled ? "1" : "0");
+            break;
+        case TEMPERATURE:
+            snprintf(valuebuf, 100, "%.1f", value->value.temperature);
+            break;
+        case FLOW:
+            snprintf(valuebuf, 100, "%d", value->value.flow);
+            break;
+        case HEAT:
+            snprintf(varbuf, 100, "%s_%d_VALUE_CURRENT", prefix, (int)(value->valueID));
+            snprintf(valuebuf, 100, "%.2f", value->value.heat.current);
+            setenv(varbuf, valuebuf, 1);
+            snprintf(varbuf, 100, "%s_%d_VALUE_TOTAL", prefix, (int)(value->valueID));
+            snprintf(valuebuf, 100, "%.1f", value->value.heat.total);
+    }
+    setenv(varbuf, valuebuf, 1);
+}
+
+void setEnvList(char *prefix, struct ValueListNode *head)
+{
+    struct ValueListNode *it;
+    char valuebuf[100];
+    char varbuf[100];
+    it = head;
+    int counter = 0;
+    while (it != NULL) {
+        setEnvValue(prefix, &(it->value));
+        ++counter;
+        it = it->next;
+    }
+    snprintf(valuebuf, 100, "%d", counter);
+    snprintf(varbuf, 100, "%sS", prefix);
+    setenv(varbuf, valuebuf, 1);    
 }
 
 void executeProgram(char *program, struct SystemState *state)
@@ -86,49 +164,9 @@ void executeProgram(char *program, struct SystemState *state)
     if (state != NULL) {
         child = fork();
         if (child == 0) {
-            // we're in the child
-            struct ValueListNode *ii = state->inputs;
-            char valuebuf[100];
-            int counter = 0;
-            while (ii != NULL) {
-                char varbuf[100];
-                snprintf(varbuf, 100, "UVR_INPUT_%d_TYPE", ii->value.valueID);
-                switch(ii->value.valueID) {
-                    case UNUSED:
-                        snprintf(valuebuf, 100, "UNUSED");
-                        break;
-                    case DIGITAL:
-                        snprintf(valuebuf, 100, "DIGITAL");
-                        break;
-                    case TEMPERATURE:
-                        snprintf(valuebuf, 100, "TEMPERATURE");
-                        break;
-                    case FLOW:
-                        snprintf(valuebuf, 100, "FLOW");
-                        break;
-                }
-                setenv(varbuf, valuebuf, 1);
-                snprintf(varbuf, 100, "UVR_INPUT_%d_VALUE", ii->value.valueID);
-                switch(ii->value.valueType) {
-                    case UNUSED:
-                        snprintf(valuebuf, 100, "UNUSED");
-                        break;
-                    case DIGITAL:
-                        snprintf(valuebuf, 100, ii->value.value.enabled ? "1" : "0");
-                        break;
-                    case TEMPERATURE:
-                        snprintf(valuebuf, 100, "%.1f", ii->value.value.temperature);
-                        break;
-                    case FLOW:
-                        snprintf(valuebuf, 100, "%d", ii->value.value.flow);
-                        break;
-                }
-                setenv(varbuf, valuebuf, 1);
-                counter++;
-                ii = ii->next;
-            }
-            snprintf(valuebuf, 100, "%d", counter);
-            setenv("UVR_INPUTS", valuebuf, 1);
+            setEnvList("UVR_INPUT", state->inputs);
+            setEnvList("UVR_OUTPUT", state->outputs);
+            setEnvList("UVR_HEATREG", state->heatRegisters);
             log_output(LOG_DEBUG, "Executing %s\n", program);
             system(program);
             log_output(LOG_DEBUG, "%s finished\n", program);
@@ -225,21 +263,12 @@ int main(int argc, char *argv[]) {
                 executeProgram(script, result);
             }
             else {
-                struct ValueListNode *it;
                 printf("Inputs\n");
-                it = result->inputs;
-                while (it != NULL) {
-                    printValue("S", &(it->value));
-                    printf("\n");
-                    it = it->next;
-                }
+                printValueList("S", result->inputs);
                 printf("Outputs\n");
-                it = result->outputs;
-                while (it != NULL) {
-                    printValue("O", &(it->value));
-                    printf("\n");
-                    it = it->next;
-                }                
+                printValueList("O", result->outputs);
+                printf("Heat registers\n");
+                printValueList("", result->heatRegisters);
             }
             freeSystemState(result);
             sleep(delay);
