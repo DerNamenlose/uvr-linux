@@ -29,6 +29,21 @@ struct SystemState *initSystemState()
     if (ptr) {
         ptr->inputs = NULL;
         ptr->outputs = NULL;
+        ptr->heatRegisters = NULL;
+    }
+}
+
+void freeValueList(struct ValueListNode *head)
+{
+    if (head != NULL) {
+        struct ValueListNode *ptr;
+        ptr = head;
+        while (ptr != NULL) {
+            struct ValueListNode *tmp;
+            tmp = ptr;
+            ptr = ptr->next;
+            free(tmp);
+        }
     }
 }
 
@@ -38,16 +53,9 @@ struct SystemState *initSystemState()
 void freeSystemState(struct SystemState *state)
 {
     if (state) {
-        if (state->inputs) {
-            struct ValueListNode *ptr;
-            ptr = state->inputs;
-            while (ptr != NULL) {
-                struct ValueListNode *tmp;
-                tmp = ptr;
-                ptr = ptr->next;
-                free(tmp);
-            }
-        }
+        freeValueList(state->inputs);
+        freeValueList(state->outputs);
+        freeValueList(state->heatRegisters);
         free(state);
     }
 }
