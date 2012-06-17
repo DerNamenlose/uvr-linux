@@ -62,36 +62,51 @@ struct USBConnection
 #define RADIATION 6
 #define ROOM_TEMPERATURE 7
 
-struct SensorValue
+struct Value
 {
-    unsigned char sensor;
+    unsigned char valueID;
     union {
         float temperature;
         int   enabled;
         int   flow;
         int   radiation;
     } value;
-    int sensorType;
+    int valueType;
 };
 
 /**
  * a list node of a sensor list
  */
-struct SensorListNode
+struct ValueListNode
 {
-    struct SensorValue sensor;
-    struct SensorListNode *next;
+    struct Value value;
+    struct ValueListNode *next;
 };
 
 /**
- * clean up a sensor list
+ * the whole current system state including inputs and outputs
  */
-void freeSensorList(struct SensorListNode *list);
+struct SystemState
+{
+    struct ValueListNode *inputs;
+    struct ValueListNode *outputs;
+    // TODO more values
+};
 
 /**
- * create a new SensorListNode
+ * get a new system state object
  */
-struct SensorListNode *createSensorListNode();
+struct SystemState *initSystemState();
+
+/**
+ * clean up a system state object
+ */
+void freeSystemState(struct SystemState *state);
+
+/**
+ * create a new ValueListNode
+ */
+struct ValueListNode *createValueListNode();
 
 #ifdef __cplusplus
 }
