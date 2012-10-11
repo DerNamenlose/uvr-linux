@@ -37,6 +37,11 @@ struct ValueListNode *parseInput(unsigned char *buffer)
         value = buffer[1] & 0x0F;
         value <<= 8;
         value += buffer[0];
+	log_output(LOG_DEBUG, "Binary value: %x\n", value);
+	if (value & 0x0800) {
+		// negative temperature
+		value = -(0x1000 - value);
+	}
         switch (node->value.valueType) {
             case UNUSED:
                 break;
